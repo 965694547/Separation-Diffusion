@@ -1,0 +1,78 @@
+environment:
+  TWINE_USERNAME: JeremyCCHsu
+  TWINE_PASSWORD:
+    secure: HXcw31EzuR8YDqCfkd3APw==
+
+  matrix:
+    - PYTHON_VERSION: "3.6"
+      PYTHON_ARCH: "64"
+      MINICONDA: C:\Miniconda3-x64
+
+    - PYTHON_VERSION: "3.6"
+      PYTHON_ARCH: "32"
+      MINICONDA: C:\Miniconda3
+
+    - PYTHON_VERSION: "3.7"
+      PYTHON_ARCH: "64"
+      MINICONDA: C:\Miniconda3-x64
+
+    - PYTHON_VERSION: "3.7"
+      PYTHON_ARCH: "32"
+      MINICONDA: C:\Miniconda3
+
+# platform: x64
+
+init:
+  - ps: |
+      Write-Output "*** Python $env:PYTHON_VERSION ***"
+      $env:Path += ";$env:PYTHON_ROOT;$env:PYTHON_ROOT\Scripts"
+
+install:
+  - ps: |
+      "INFO: Variables"
+      "INFO: is a tag: $Env:APPVEYOR_REPO_TAG"
+      "INFO: $APPVEYOR_REPO_TAG"
+      "INFO: tag name: $Env:APPVEYOR_REPO_TAG_NAME"
+      "INFO: $APPVEYOR_REPO_TAG_NAME"
+  - "SET PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
+  - conda config --set always_yes yes  --set changeps1 no
+  - conda update -q conda
+  - conda config --add channels pypi
+  - conda info -a
+  - "conda create -q -n test-environment python=%PYTHON_VERSION% numpy cython wheel matplotlib"
+  - activate test-environment
+  - python -m pip install --no-cache-dir -U pip
+  - ps: |
+      Write-Output "Installing requirements..."
+      pip install -r requirements.txt
+
+build_script:
+  - git submodule update --init
+  - pip install -e .
+
+test_script:
+  - ps: |
+      $ErrorActionPreference = "Stop"
+      Set-Location "$env:APPVEYOR_BUILD_FOLDER\demo"
+      python demo.py
+      Set-Location "$env:APPVEYOR_BUILD_FOLDER"
+
+after_test:
+  - python setup.py bdist_wheel
+
+artifacts:
+  - path: dist\*
+
+deploy_script:
+  - ps: |
+      $ErrorActionPreference = "Stop"
+      if ($Env:APPVEYOR_REPO_TAG -eq "true"){
+        pip install twine
+        twine upload dist/*.whl
+      }
+      else{
+        "Not a tag (skipped)"
+        "$APPVEYOR_REPO_TAG"
+        "$APPVEYOR_REPO_TAG_NAME"
+      }
+# -and $APPVEYOR_REPO_TAG_NAME -match "^v([0-9.a-z]+)$") {
